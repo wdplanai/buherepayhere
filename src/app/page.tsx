@@ -1,8 +1,15 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import SearchBar from "@/components/SearchBar";
 import { getAllStates } from "@/lib/db";
 
 export const revalidate = 3600; // ISR: revalidate every hour
+
+export const metadata: Metadata = {
+  title: "Find Buy Here Pay Here Dealers Near You | BuyHerePayHere.io",
+  description:
+    "Browse 2,699 trusted buy here pay here dealerships across all 50 states. Get approved for in-house financing regardless of your credit history.",
+};
 
 export default async function HomePage() {
   const states = await getAllStates();

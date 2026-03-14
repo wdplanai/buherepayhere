@@ -16,8 +16,8 @@ export async function generateMetadata({ params }: StatePageProps): Promise<Meta
   const state = await getStateBySlug(stateSlug);
   if (!state) return {};
   return {
-    title: `Buy Here Pay Here Dealers in ${state.state_name} | BHPH ${state.state_name}`,
-    description: `Find ${state.dealer_count} Buy Here Pay Here dealers in ${state.state_name}. Browse BHPH dealerships in ${state.city_count} cities with in-house financing for all credit types.`,
+    title: `Buy Here Pay Here Dealers in ${state.state_name} | BuyHerePayHere.io`,
+    description: `Find ${state.dealer_count} buy here pay here car dealers in ${state.state_name}. Browse cities and get approved for in-house financing with bad credit or no credit.`,
   };
 }
 

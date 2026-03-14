@@ -15,8 +15,8 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
   const city = await getCityBySlug(stateSlug, citySlug);
   if (!city) return {};
   return {
-    title: `Buy Here Pay Here Dealers in ${city.city_name}, ${city.state_abbreviation} | BHPH ${city.city_name}`,
-    description: `Find ${city.dealer_count} trusted Buy Here Pay Here dealers in ${city.city_name}, ${city.state_name}. In-house financing for all credit types. Browse BHPH dealerships and get approved today.`,
+    title: `Buy Here Pay Here Dealers in ${city.city_name}, ${city.state_abbreviation} | BuyHerePayHere.io`,
+    description: `Find ${city.dealer_count} buy here pay here dealerships in ${city.city_name}, ${city.state_name}. Get in-house financing and drive away today regardless of your credit score.`,
   };
 }
 
@@ -114,7 +114,7 @@ export default async function CityPage({ params }: CityPageProps) {
                     </div>
                     <div className="flex flex-col gap-2 md:items-end flex-shrink-0">
                       <Link
-                        href={`/dealers/${stateSlug}/${citySlug}/${dealer.slug}/`}
+                        href={`/dealer/${dealer.slug}/${stateSlug}/${citySlug}/`}
                         className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                       >
                         View Details

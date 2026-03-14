@@ -23,9 +23,10 @@ export async function generateMetadata({ params }: DealerPageProps): Promise<Met
   const { stateSlug, citySlug, dealerSlug } = await params;
   const dealer = await getDealerBySlug(stateSlug, citySlug, dealerSlug);
   if (!dealer) return {};
+  const phoneSnippet = dealer.phone ? ` ${dealer.phone}.` : "";
   return {
-    title: `${dealer.name} - Buy Here Pay Here in ${dealer.city_name}, ${dealer.state_abbreviation}`,
-    description: `${dealer.name} is a trusted Buy Here Pay Here dealer in ${dealer.city_name}, ${dealer.state_name}. ${dealer.description ? dealer.description.substring(0, 150) : "In-house financing for all credit types."}`,
+    title: `${dealer.name} - Buy Here Pay Here Dealer in ${dealer.city_name}, ${dealer.state_abbreviation} | BuyHerePayHere.io`,
+    description: `${dealer.name} is a buy here pay here dealership in ${dealer.city_name}, ${dealer.state_name}. Get in-house financing with bad credit.${phoneSnippet}`,
   };
 }
 
