@@ -70,7 +70,7 @@ export default async function StatePage({ params }: StatePageProps) {
       <section className="bg-white">
         <div className="container-custom py-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
-            Cities with BHPH Dealers in {state.state_name}
+            Browse BHPH Dealers by City in {state.state_name}
           </h2>
           {cities.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -85,7 +85,9 @@ export default async function StatePage({ params }: StatePageProps) {
                       {city.city_name}
                     </div>
                     <div className="text-sm text-gray-500 mt-0.5">
-                      {city.dealer_count} {city.dealer_count === 1 ? "dealer" : "dealers"} available
+                      {city.dealer_count > 0
+                        ? `${city.dealer_count} ${city.dealer_count === 1 ? "dealer" : "dealers"} available`
+                        : "No dealers yet"}
                     </div>
                   </div>
                   <svg

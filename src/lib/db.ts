@@ -70,36 +70,36 @@ export interface StateInfo {
   city_count: number;
 }
 
-/** All 50 states with aggregated dealer and city counts */
+/** All states with aggregated dealer and city counts (from locations table) */
 export async function getAllStates(): Promise<StateInfo[]> {
   const { rows } = await pool.query<StateInfo>(`
     SELECT
-      d.state_name,
-      d.state_slug,
-      d.state_abbreviation,
-      COUNT(*)::int AS dealer_count,
-      COUNT(DISTINCT d.city_slug)::int AS city_count
-    FROM dealers d
-    GROUP BY d.state_name, d.state_slug, d.state_abbreviation
-    ORDER BY d.state_name
+      l.state_name,
+      l.state_slug,
+      l.state_abbreviation,
+      COALESCE(SUM(l.dealer_count), 0)::int AS dealer_count,
+      COUNT(*)::int AS city_count
+    FROM locations l
+    GROUP BY l.state_name, l.state_slug, l.state_abbreviation
+    ORDER BY l.state_name
   `);
   return rows;
 }
 
-/** Single state info */
+/** Single state info (from locations table) */
 export async function getStateBySlug(
   stateSlug: string
 ): Promise<StateInfo | null> {
   const { rows } = await pool.query<StateInfo>(
     `SELECT
-       d.state_name,
-       d.state_slug,
-       d.state_abbreviation,
-       COUNT(*)::int AS dealer_count,
-       COUNT(DISTINCT d.city_slug)::int AS city_count
-     FROM dealers d
-     WHERE d.state_slug = $1
-     GROUP BY d.state_name, d.state_slug, d.state_abbreviation`,
+       l.state_name,
+       l.state_slug,
+       l.state_abbreviation,
+       COALESCE(SUM(l.dealer_count), 0)::int AS dealer_count,
+       COUNT(*)::int AS city_count
+     FROM locations l
+     WHERE l.state_slug = $1
+     GROUP BY l.state_name, l.state_slug, l.state_abbreviation`,
     [stateSlug]
   );
   return rows[0] ?? null;
@@ -116,43 +116,42 @@ export interface CityInfo {
   dealer_count: number;
 }
 
-/** All cities within a state */
+/** All cities within a state (from locations table - includes 0-dealer cities) */
 export async function getCitiesByState(
   stateSlug: string
 ): Promise<CityInfo[]> {
   const { rows } = await pool.query<CityInfo>(
     `SELECT
-       d.city_name,
-       d.city_slug,
-       d.state_name,
-       d.state_slug,
-       d.state_abbreviation,
-       COUNT(*)::int AS dealer_count
-     FROM dealers d
-     WHERE d.state_slug = $1
-     GROUP BY d.city_name, d.city_slug, d.state_name, d.state_slug, d.state_abbreviation
-     ORDER BY d.city_name`,
+       l.city_name,
+       l.city_slug,
+       l.state_name,
+       l.state_slug,
+       l.state_abbreviation,
+       l.dealer_count
+     FROM locations l
+     WHERE l.state_slug = $1
+     ORDER BY l.dealer_count DESC, l.city_name ASC`,
     [stateSlug]
   );
   return rows;
 }
 
-/** Single city info */
+/** Single city info (from locations table - works for 0-dealer cities too) */
 export async function getCityBySlug(
   stateSlug: string,
   citySlug: string
 ): Promise<CityInfo | null> {
   const { rows } = await pool.query<CityInfo>(
     `SELECT
-       d.city_name,
-       d.city_slug,
-       d.state_name,
-       d.state_slug,
-       d.state_abbreviation,
-       COUNT(*)::int AS dealer_count
-     FROM dealers d
-     WHERE d.state_slug = $1 AND d.city_slug = $2
-     GROUP BY d.city_name, d.city_slug, d.state_name, d.state_slug, d.state_abbreviation`,
+       l.city_name,
+       l.city_slug,
+       l.state_name,
+       l.state_slug,
+       l.state_abbreviation,
+       l.dealer_count
+     FROM locations l
+     WHERE l.state_slug = $1 AND l.city_slug = $2
+     LIMIT 1`,
     [stateSlug, citySlug]
   );
   return rows[0] ?? null;

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Breadcrumb from "@/components/Breadcrumb";
-import { getCityBySlug, getDealersByCity } from "@/lib/db";
+import { getCityBySlug, getDealersByCity, getCitiesByState } from "@/lib/db";
 
 export const revalidate = 3600;
 
@@ -14,25 +14,44 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
   const { stateSlug, citySlug } = await params;
   const city = await getCityBySlug(stateSlug, citySlug);
   if (!city) return {};
+
+  const dealerCount = city.dealer_count || 0;
+  const description = dealerCount > 0
+    ? `Find ${dealerCount} buy here pay here dealerships in ${city.city_name}, ${city.state_name}. Get in-house financing and drive away today regardless of your credit score.`
+    : `Looking for buy here pay here dealers in ${city.city_name}, ${city.state_name}? Browse nearby BHPH dealerships offering in-house financing for all credit types.`;
+
   return {
     title: `Buy Here Pay Here Dealers in ${city.city_name}, ${city.state_abbreviation} | BuyHerePayHere.io`,
-    description: `Find ${city.dealer_count} buy here pay here dealerships in ${city.city_name}, ${city.state_name}. Get in-house financing and drive away today regardless of your credit score.`,
+    description,
   };
 }
 
 export default async function CityPage({ params }: CityPageProps) {
   const { stateSlug, citySlug } = await params;
-  const [city, dealers] = await Promise.all([
+  const [city, dealers, allCities] = await Promise.all([
     getCityBySlug(stateSlug, citySlug),
     getDealersByCity(stateSlug, citySlug),
+    getCitiesByState(stateSlug),
   ]);
 
   if (!city) notFound();
 
-  const seoContent = [
-    `${city.city_name}, ${city.state_name} is home to ${city.dealer_count} Buy Here Pay Here dealerships that specialize in helping drivers with all types of credit situations. Whether you are dealing with bad credit, no credit history, a past bankruptcy, or a previous repossession, the BHPH dealers in ${city.city_name} offer in-house financing that makes vehicle ownership accessible. These dealerships evaluate your current income and ability to make payments rather than relying solely on your credit score.`,
-    `When visiting a Buy Here Pay Here dealer in ${city.city_name}, you can expect a straightforward process. Most dealers require a valid driver's license, proof of income, proof of residence, and a down payment. Many ${city.city_name} BHPH dealers offer same-day approval and allow you to drive home in your new vehicle the same day you apply. Additionally, several dealerships in the area report your payment history to credit bureaus, which means making on-time payments can help you rebuild your credit over time.`,
-  ];
+  const hasDealers = dealers.length > 0;
+
+  // Find nearby cities with dealers for the zero-dealer case
+  const nearbyCitiesWithDealers = allCities
+    .filter((c: { city_slug: string; dealer_count: number }) => c.city_slug !== citySlug && c.dealer_count > 0)
+    .slice(0, 6);
+
+  const seoContent = hasDealers
+    ? [
+        `${city.city_name}, ${city.state_name} is home to ${dealers.length} Buy Here Pay Here dealerships that specialize in helping drivers with all types of credit situations. Whether you are dealing with bad credit, no credit history, a past bankruptcy, or a previous repossession, the BHPH dealers in ${city.city_name} offer in-house financing that makes vehicle ownership accessible. These dealerships evaluate your current income and ability to make payments rather than relying solely on your credit score.`,
+        `When visiting a Buy Here Pay Here dealer in ${city.city_name}, you can expect a straightforward process. Most dealers require a valid driver's license, proof of income, proof of residence, and a down payment. Many ${city.city_name} BHPH dealers offer same-day approval and allow you to drive home in your new vehicle the same day you apply. Additionally, several dealerships in the area report your payment history to credit bureaus, which means making on-time payments can help you rebuild your credit over time.`,
+      ]
+    : [
+        `While there are currently no Buy Here Pay Here dealerships listed directly in ${city.city_name}, ${city.state_name}, there are BHPH options available in nearby cities throughout ${city.state_name}. Buy Here Pay Here dealerships provide in-house financing, which means the dealer finances the vehicle directly rather than going through a third-party bank or credit union. This makes it possible for buyers with bad credit, no credit, or a history of bankruptcy to get approved and drive away in a reliable vehicle.`,
+        `If you live in or near ${city.city_name} and are looking for a Buy Here Pay Here dealer, we recommend checking the nearby cities listed below. Many BHPH customers are willing to drive a short distance to find the right dealer and vehicle. When you do visit a dealer, bring your valid driver's license, proof of income such as recent pay stubs, proof of residence, and a down payment. Most BHPH dealers in ${city.state_name} offer same-day approval and can have you on the road quickly.`,
+      ];
 
   return (
     <>
@@ -50,20 +69,23 @@ export default async function CityPage({ params }: CityPageProps) {
             Buy Here Pay Here Dealers in {city.city_name}, {city.state_abbreviation}
           </h1>
           <p className="text-blue-100 text-lg max-w-2xl">
-            Browse {dealers.length} trusted BHPH dealerships in {city.city_name},{" "}
-            {city.state_name}. All dealers offer in-house financing for buyers
-            with all credit types.
+            {hasDealers
+              ? `Browse ${dealers.length} trusted BHPH dealerships in ${city.city_name}, ${city.state_name}. All dealers offer in-house financing for buyers with all credit types.`
+              : `Find Buy Here Pay Here dealerships near ${city.city_name}, ${city.state_name}. Get in-house financing regardless of your credit history.`}
           </p>
         </div>
       </section>
 
-      {/* Dealer Cards */}
+      {/* Dealer Cards or No Dealers Message */}
       <section className="bg-gray-50">
         <div className="container-custom py-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
-            BHPH Dealers in {city.city_name}
+            {hasDealers
+              ? `BHPH Dealers in ${city.city_name}`
+              : `No Dealers Found in ${city.city_name} Yet`}
           </h2>
-          {dealers.length > 0 ? (
+
+          {hasDealers ? (
             <div className="space-y-4">
               {dealers.map((dealer) => (
                 <div
@@ -139,21 +161,78 @@ export default async function CityPage({ params }: CityPageProps) {
               ))}
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-              <p className="text-gray-600 font-medium mb-1">
-                Dealer listings coming soon
-              </p>
-              <p className="text-sm text-gray-500">
-                We&apos;re currently adding detailed dealer listings for {city.city_name},{" "}
-                {city.state_abbreviation}. Check back soon.
-              </p>
+            <div className="bg-white rounded-xl border border-gray-200 p-8 md:p-12">
+              <div className="text-center max-w-xl mx-auto">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">
+                  No Buy Here Pay Here Dealers in {city.city_name} Yet
+                </h3>
+                <p className="text-gray-600 mb-6 leading-relaxed">
+                  We have not yet listed any BHPH dealerships directly in {city.city_name}, {city.state_abbreviation}.
+                  However, there are Buy Here Pay Here dealers in nearby {city.state_name} cities that can help you
+                  get approved for in-house financing regardless of your credit situation.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link
+                    href={`/dealers/${city.state_slug}/`}
+                    className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Browse All {city.state_name} Dealers
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Are you a dealer CTA */}
+              <div className="mt-8 pt-8 border-t border-gray-200 text-center">
+                <p className="text-sm text-gray-500 mb-2">Are you a Buy Here Pay Here dealer in {city.city_name}?</p>
+                <p className="text-sm text-blue-600 font-medium">
+                  Contact us to get your dealership listed in our directory for free.
+                </p>
+              </div>
             </div>
           )}
         </div>
       </section>
 
+      {/* Nearby Cities with Dealers (shown when no dealers in current city) */}
+      {!hasDealers && nearbyCitiesWithDealers.length > 0 && (
+        <section className="bg-white">
+          <div className="container-custom py-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Nearby {city.state_name} Cities with BHPH Dealers
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {nearbyCitiesWithDealers.map((nearbyCity: { city_slug: string; city_name: string; dealer_count: number; state_slug: string }) => (
+                <Link
+                  key={nearbyCity.city_slug}
+                  href={`/dealers/${stateSlug}/${nearbyCity.city_slug}/`}
+                  className="flex items-center justify-between bg-gray-50 rounded-lg border border-gray-200 p-4 hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                >
+                  <div>
+                    <span className="font-semibold text-gray-900">{nearbyCity.city_name}</span>
+                    <span className="block text-sm text-gray-500 mt-0.5">
+                      {nearbyCity.dealer_count} dealer{nearbyCity.dealer_count !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* SEO Content */}
-      <section className="bg-white">
+      <section className={hasDealers ? "bg-white" : "bg-gray-50"}>
         <div className="container-custom py-12">
           <div className="max-w-3xl">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
@@ -169,11 +248,11 @@ export default async function CityPage({ params }: CityPageProps) {
       </section>
 
       {/* What to Bring */}
-      <section className="bg-gray-50">
+      <section className={hasDealers ? "bg-gray-50" : "bg-white"}>
         <div className="container-custom py-12">
           <div className="max-w-3xl">
             <h2 className="text-xl font-bold text-gray-900 mb-6">
-              What to Bring When Visiting a BHPH Dealer in {city.city_name}
+              What to Bring When Visiting a BHPH Dealer{hasDealers ? ` in ${city.city_name}` : ` near ${city.city_name}`}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
