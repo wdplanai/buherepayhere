@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Breadcrumb from "@/components/Breadcrumb";
-import { getCityBySlug, getDealersByCity, getCitiesByState } from "@/lib/db";
+import { getCityBySlug, getDealersByCity, getNearbyCities } from "@/lib/db";
 
 export const revalidate = 3600;
 
@@ -28,20 +28,15 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 
 export default async function CityPage({ params }: CityPageProps) {
   const { stateSlug, citySlug } = await params;
-  const [city, dealers, allCities] = await Promise.all([
+  const [city, dealers, nearbyCities] = await Promise.all([
     getCityBySlug(stateSlug, citySlug),
     getDealersByCity(stateSlug, citySlug),
-    getCitiesByState(stateSlug),
+    getNearbyCities(stateSlug, citySlug, 5),
   ]);
 
   if (!city) notFound();
 
   const hasDealers = dealers.length > 0;
-
-  // Find nearby cities with dealers for the zero-dealer case
-  const nearbyCitiesWithDealers = allCities
-    .filter((c: { city_slug: string; dealer_count: number }) => c.city_slug !== citySlug && c.dealer_count > 0)
-    .slice(0, 6);
 
   const seoContent = hasDealers
     ? [
@@ -55,7 +50,6 @@ export default async function CityPage({ params }: CityPageProps) {
 
   return (
     <>
-      {/* Hero */}
       <section className="bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 text-white">
         <div className="container-custom py-12 md:py-16">
           <Breadcrumb
@@ -76,7 +70,6 @@ export default async function CityPage({ params }: CityPageProps) {
         </div>
       </section>
 
-      {/* Dealer Cards or No Dealers Message */}
       <section className="bg-gray-50">
         <div className="container-custom py-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
@@ -173,7 +166,7 @@ export default async function CityPage({ params }: CityPageProps) {
                 </h3>
                 <p className="text-gray-600 mb-6 leading-relaxed">
                   We have not yet listed any BHPH dealerships directly in {city.city_name}, {city.state_abbreviation}.
-                  However, there are Buy Here Pay Here dealers in nearby {city.state_name} cities that can help you
+                  However, there are Buy Here Pay Here dealers in nearby cities that can help you
                   get approved for in-house financing regardless of your credit situation.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -189,7 +182,6 @@ export default async function CityPage({ params }: CityPageProps) {
                 </div>
               </div>
 
-              {/* Are you a dealer CTA */}
               <div className="mt-8 pt-8 border-t border-gray-200 text-center">
                 <p className="text-sm text-gray-500 mb-2">Are you a Buy Here Pay Here dealer in {city.city_name}?</p>
                 <p className="text-sm text-blue-600 font-medium">
@@ -201,37 +193,45 @@ export default async function CityPage({ params }: CityPageProps) {
         </div>
       </section>
 
-      {/* Nearby Cities with Dealers (shown when no dealers in current city) */}
-      {!hasDealers && nearbyCitiesWithDealers.length > 0 && (
+      {nearbyCities.length > 0 && (
         <section className="bg-white">
           <div className="container-custom py-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              Nearby {city.state_name} Cities with BHPH Dealers
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {nearbyCitiesWithDealers.map((nearbyCity: { city_slug: string; city_name: string; dealer_count: number; state_slug: string }) => (
-                <Link
-                  key={nearbyCity.city_slug}
-                  href={`/dealers/${stateSlug}/${nearbyCity.city_slug}/`}
-                  className="flex items-center justify-between bg-gray-50 rounded-lg border border-gray-200 p-4 hover:bg-blue-50 hover:border-blue-200 transition-colors"
-                >
-                  <div>
-                    <span className="font-semibold text-gray-900">{nearbyCity.city_name}</span>
-                    <span className="block text-sm text-gray-500 mt-0.5">
-                      {nearbyCity.dealer_count} dealer{nearbyCity.dealer_count !== 1 ? "s" : ""}
+            <div className="max-w-5xl">
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                Nearby Cities to {city.city_name}, {city.state_abbreviation}
+              </h2>
+              <p className="text-gray-600 mb-6 max-w-3xl leading-relaxed">
+                Explore other nearby cities where you can browse Buy Here Pay Here dealers and compare local financing options. These internal links are based on geographic proximity to {city.city_name}.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {nearbyCities.map((nearbyCity) => (
+                  <Link
+                    key={`${nearbyCity.state_slug}-${nearbyCity.city_slug}`}
+                    href={`/dealers/${nearbyCity.state_slug}/${nearbyCity.city_slug}/`}
+                    className="group rounded-xl border border-gray-200 bg-gray-50 p-4 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                  >
+                    <span className="block text-base font-semibold text-gray-900 group-hover:text-blue-700">
+                      {nearbyCity.city_name}
                     </span>
-                  </div>
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              ))}
+                    <span className="mt-1 block text-sm text-gray-500">
+                      {nearbyCity.state_name}
+                    </span>
+                    <span className="mt-2 block text-xs text-gray-500">
+                      {nearbyCity.dealer_count > 0
+                        ? `${nearbyCity.dealer_count} dealer${nearbyCity.dealer_count === 1 ? "" : "s"}`
+                        : "No dealers yet"}
+                    </span>
+                    <span className="mt-1 block text-xs text-blue-600 font-medium">
+                      About {nearbyCity.distance_miles} miles away
+                    </span>
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         </section>
       )}
 
-      {/* SEO Content */}
       <section className={hasDealers ? "bg-white" : "bg-gray-50"}>
         <div className="container-custom py-12">
           <div className="max-w-3xl">
@@ -247,7 +247,6 @@ export default async function CityPage({ params }: CityPageProps) {
         </div>
       </section>
 
-      {/* What to Bring */}
       <section className={hasDealers ? "bg-gray-50" : "bg-white"}>
         <div className="container-custom py-12">
           <div className="max-w-3xl">
@@ -281,7 +280,6 @@ export default async function CityPage({ params }: CityPageProps) {
         </div>
       </section>
 
-      {/* Back to State */}
       <section className="bg-white">
         <div className="container-custom py-8">
           <Link

@@ -114,6 +114,18 @@ export interface CityInfo {
   state_slug: string;
   state_abbreviation: string;
   dealer_count: number;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export interface NearbyCityInfo {
+  city_name: string;
+  city_slug: string;
+  state_name: string;
+  state_slug: string;
+  state_abbreviation: string;
+  dealer_count: number;
+  distance_miles: number;
 }
 
 /** All cities within a state (from locations table - includes 0-dealer cities) */
@@ -148,13 +160,157 @@ export async function getCityBySlug(
        l.state_name,
        l.state_slug,
        l.state_abbreviation,
-       l.dealer_count
+       l.dealer_count,
+       CAST(NULL AS double precision) AS latitude,
+       CAST(NULL AS double precision) AS longitude
      FROM locations l
      WHERE l.state_slug = $1 AND l.city_slug = $2
      LIMIT 1`,
     [stateSlug, citySlug]
   );
   return rows[0] ?? null;
+}
+
+/** Five geographically nearest cities based on imported location coordinates. */
+export async function getNearbyCities(
+  stateSlug: string,
+  citySlug: string,
+  limit = 5
+): Promise<NearbyCityInfo[]> {
+  const safeLimit = Math.max(1, Math.min(limit, 5));
+
+  const target = await pool.query<{
+    state_name: string;
+    state_slug: string;
+    state_abbreviation: string;
+    city_name: string;
+    city_slug: string;
+    latitude: number | null;
+    longitude: number | null;
+  }>(
+    `SELECT
+       l.state_name,
+       l.state_slug,
+       l.state_abbreviation,
+       l.city_name,
+       l.city_slug,
+       coords.latitude,
+       coords.longitude
+     FROM locations l
+     LEFT JOIN LATERAL (
+       SELECT src.lat::double precision AS latitude, src.lng::double precision AS longitude
+       FROM (
+         SELECT DISTINCT ON (city_slug, state_abbreviation)
+           city_slug,
+           state_abbreviation,
+           NULLIF(lat, '') AS lat,
+           NULLIF(lng, '') AS lng
+         FROM cities_source_data
+         WHERE city_slug = l.city_slug
+           AND state_abbreviation = l.state_abbreviation
+           AND NULLIF(lat, '') IS NOT NULL
+           AND NULLIF(lng, '') IS NOT NULL
+       ) src
+     ) coords ON true
+     WHERE l.state_slug = $1 AND l.city_slug = $2
+     LIMIT 1`,
+    [stateSlug, citySlug]
+  ).catch(async () => {
+    const fallback = await pool.query<{
+      state_name: string;
+      state_slug: string;
+      state_abbreviation: string;
+      city_name: string;
+      city_slug: string;
+    }>(
+      `SELECT state_name, state_slug, state_abbreviation, city_name, city_slug
+       FROM locations
+       WHERE state_slug = $1 AND city_slug = $2
+       LIMIT 1`,
+      [stateSlug, citySlug]
+    );
+    return { rows: fallback.rows.map((row) => ({ ...row, latitude: null, longitude: null })) };
+  });
+
+  const currentCity = target.rows[0];
+  if (!currentCity) return [];
+
+  let currentLatitude = currentCity.latitude;
+  let currentLongitude = currentCity.longitude;
+
+  if (currentLatitude == null || currentLongitude == null) {
+    const coordsFromCsv = await pool.query<{ latitude: number; longitude: number }>(
+      `SELECT src.lat::double precision AS latitude, src.lng::double precision AS longitude
+       FROM cities_source_data src
+       WHERE src.state_abbreviation = $1 AND src.city_slug = $2
+         AND NULLIF(src.lat, '') IS NOT NULL
+         AND NULLIF(src.lng, '') IS NOT NULL
+       ORDER BY src.population DESC NULLS LAST, src.city_name ASC
+       LIMIT 1`,
+      [currentCity.state_abbreviation, currentCity.city_slug]
+    ).catch(() => ({ rows: [] as { latitude: number; longitude: number }[] }));
+
+    if (coordsFromCsv.rows[0]) {
+      currentLatitude = coordsFromCsv.rows[0].latitude;
+      currentLongitude = coordsFromCsv.rows[0].longitude;
+    }
+  }
+
+  if (currentLatitude == null || currentLongitude == null) {
+    return [];
+  }
+
+  const { rows } = await pool.query<NearbyCityInfo>(
+    `WITH city_coords AS (
+       SELECT DISTINCT ON (l.state_slug, l.city_slug)
+         l.city_name,
+         l.city_slug,
+         l.state_name,
+         l.state_slug,
+         l.state_abbreviation,
+         l.dealer_count,
+         src.lat::double precision AS latitude,
+         src.lng::double precision AS longitude
+       FROM locations l
+       JOIN cities_source_data src
+         ON src.city_slug = l.city_slug
+        AND src.state_abbreviation = l.state_abbreviation
+       WHERE NULLIF(src.lat, '') IS NOT NULL
+         AND NULLIF(src.lng, '') IS NOT NULL
+         AND (
+           l.state_slug = $1 OR
+           src.lat::double precision BETWEEN $2 - 3.5 AND $2 + 3.5
+           AND src.lng::double precision BETWEEN $3 - 3.5 AND $3 + 3.5
+         )
+       ORDER BY l.state_slug, l.city_slug, src.population DESC NULLS LAST, l.city_name ASC
+     )
+     SELECT
+       city_name,
+       city_slug,
+       state_name,
+       state_slug,
+       state_abbreviation,
+       dealer_count,
+       ROUND((
+         3959 * acos(
+           LEAST(1, GREATEST(-1,
+             cos(radians($2)) * cos(radians(latitude)) * cos(radians(longitude) - radians($3)) +
+             sin(radians($2)) * sin(radians(latitude))
+           ))
+         )
+       )::numeric, 1)::double precision AS distance_miles
+     FROM city_coords
+     WHERE NOT (state_slug = $1 AND city_slug = $4)
+     ORDER BY
+       CASE WHEN state_slug = $1 THEN 0 ELSE 1 END,
+       distance_miles ASC,
+       dealer_count DESC,
+       city_name ASC
+     LIMIT $5`,
+    [stateSlug, currentLatitude, currentLongitude, citySlug, safeLimit]
+  );
+
+  return rows;
 }
 
 // ─── Dealer-level queries ──────────────────────────────────────────
@@ -222,7 +378,6 @@ export interface ClaimInput {
 }
 
 export async function submitClaim(input: ClaimInput) {
-  // Find dealer
   const { rows: dealers } = await pool.query(
     "SELECT id, name FROM dealers WHERE slug = $1 AND state_slug = $2 AND city_slug = $3",
     [input.dealerSlug, input.stateSlug, input.citySlug]
@@ -231,7 +386,6 @@ export async function submitClaim(input: ClaimInput) {
 
   const dealer = dealers[0];
 
-  // Check existing pending claim
   const { rows: existing } = await pool.query(
     "SELECT id FROM claimed_listings WHERE dealer_id = $1 AND status = 'pending'",
     [dealer.id]
@@ -239,7 +393,6 @@ export async function submitClaim(input: ClaimInput) {
   if (existing.length > 0)
     return { success: false, error: "A claim is already pending for this listing" };
 
-  // Insert
   const { rows: inserted } = await pool.query(
     `INSERT INTO claimed_listings
      (dealer_id, dealer_slug, state_slug, city_slug, claimant_name, claimant_email, claimant_phone, claimant_message, status)
