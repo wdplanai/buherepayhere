@@ -6,6 +6,7 @@ import SearchBar from "@/components/SearchBar";
 import { getStateBySlug, getCitiesByState, getAllStates } from "@/lib/db";
 
 export const revalidate = 3600;
+export const dynamicParams = true;
 
 interface StatePageProps {
   params: Promise<{ stateSlug: string }>;

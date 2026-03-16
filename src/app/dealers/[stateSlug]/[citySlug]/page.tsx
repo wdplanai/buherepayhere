@@ -5,6 +5,7 @@ import Breadcrumb from "@/components/Breadcrumb";
 import { getCityBySlug, getDealersByCity, getNearbyCities } from "@/lib/db";
 
 export const revalidate = 3600;
+export const dynamicParams = true;
 
 interface CityPageProps {
   params: Promise<{ stateSlug: string; citySlug: string }>;

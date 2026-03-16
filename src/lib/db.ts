@@ -161,8 +161,8 @@ export async function getCityBySlug(
        l.state_slug,
        l.state_abbreviation,
        l.dealer_count,
-       CAST(NULL AS double precision) AS latitude,
-       CAST(NULL AS double precision) AS longitude
+       l.latitude,
+       l.longitude
      FROM locations l
      WHERE l.state_slug = $1 AND l.city_slug = $2
      LIMIT 1`,
@@ -194,24 +194,9 @@ export async function getNearbyCities(
        l.state_abbreviation,
        l.city_name,
        l.city_slug,
-       coords.latitude,
-       coords.longitude
+       l.latitude,
+       l.longitude
      FROM locations l
-     LEFT JOIN LATERAL (
-       SELECT src.lat::double precision AS latitude, src.lng::double precision AS longitude
-       FROM (
-         SELECT DISTINCT ON (city_slug, state_abbreviation)
-           city_slug,
-           state_abbreviation,
-           NULLIF(lat, '') AS lat,
-           NULLIF(lng, '') AS lng
-         FROM cities_source_data
-         WHERE city_slug = l.city_slug
-           AND state_abbreviation = l.state_abbreviation
-           AND NULLIF(lat, '') IS NOT NULL
-           AND NULLIF(lng, '') IS NOT NULL
-       ) src
-     ) coords ON true
      WHERE l.state_slug = $1 AND l.city_slug = $2
      LIMIT 1`,
     [stateSlug, citySlug]
@@ -235,26 +220,8 @@ export async function getNearbyCities(
   const currentCity = target.rows[0];
   if (!currentCity) return [];
 
-  let currentLatitude = currentCity.latitude;
-  let currentLongitude = currentCity.longitude;
-
-  if (currentLatitude == null || currentLongitude == null) {
-    const coordsFromCsv = await pool.query<{ latitude: number; longitude: number }>(
-      `SELECT src.lat::double precision AS latitude, src.lng::double precision AS longitude
-       FROM cities_source_data src
-       WHERE src.state_abbreviation = $1 AND src.city_slug = $2
-         AND NULLIF(src.lat, '') IS NOT NULL
-         AND NULLIF(src.lng, '') IS NOT NULL
-       ORDER BY src.population DESC NULLS LAST, src.city_name ASC
-       LIMIT 1`,
-      [currentCity.state_abbreviation, currentCity.city_slug]
-    ).catch(() => ({ rows: [] as { latitude: number; longitude: number }[] }));
-
-    if (coordsFromCsv.rows[0]) {
-      currentLatitude = coordsFromCsv.rows[0].latitude;
-      currentLongitude = coordsFromCsv.rows[0].longitude;
-    }
-  }
+  const currentLatitude = currentCity.latitude;
+  const currentLongitude = currentCity.longitude;
 
   if (currentLatitude == null || currentLongitude == null) {
     return [];
@@ -269,20 +236,17 @@ export async function getNearbyCities(
          l.state_slug,
          l.state_abbreviation,
          l.dealer_count,
-         src.lat::double precision AS latitude,
-         src.lng::double precision AS longitude
+         l.latitude,
+         l.longitude
        FROM locations l
-       JOIN cities_source_data src
-         ON src.city_slug = l.city_slug
-        AND src.state_abbreviation = l.state_abbreviation
-       WHERE NULLIF(src.lat, '') IS NOT NULL
-         AND NULLIF(src.lng, '') IS NOT NULL
+       WHERE l.latitude IS NOT NULL
+         AND l.longitude IS NOT NULL
          AND (
            l.state_slug = $1 OR
-           src.lat::double precision BETWEEN $2 - 3.5 AND $2 + 3.5
-           AND src.lng::double precision BETWEEN $3 - 3.5 AND $3 + 3.5
+           l.latitude BETWEEN $2 - 3.5 AND $2 + 3.5
+           AND l.longitude BETWEEN $3 - 3.5 AND $3 + 3.5
          )
-       ORDER BY l.state_slug, l.city_slug, src.population DESC NULLS LAST, l.city_name ASC
+       ORDER BY l.state_slug, l.city_slug, l.dealer_count DESC, l.city_name ASC
      )
      SELECT
        city_name,
