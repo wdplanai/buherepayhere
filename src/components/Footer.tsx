@@ -63,6 +63,21 @@ export default function Footer() {
                   What is BHPH?
                 </Link>
               </li>
+              <li>
+                <Link href="/terms-of-service" className="text-sm text-gray-400 hover:text-white transition-colors">
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link href="/privacy-policy" className="text-sm text-gray-400 hover:text-white transition-colors">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/cookie-policy" className="text-sm text-gray-400 hover:text-white transition-colors">
+                  Cookie Policy
+                </Link>
+              </li>
             </ul>
           </div>
 
