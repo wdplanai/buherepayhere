@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Breadcrumb from "@/components/Breadcrumb";
 import ClaimListingForm from "@/components/ClaimListingForm";
 import { getDealerBySlug } from "@/lib/db";
+import { buildMetadata } from "@/lib/seo";
 
 const DealerMap = dynamic(() => import("@/components/DealerMap"), {
   ssr: false,
@@ -24,10 +25,11 @@ export async function generateMetadata({ params }: DealerPageProps): Promise<Met
   const dealer = await getDealerBySlug(stateSlug, citySlug, dealerSlug);
   if (!dealer) return {};
   const phoneSnippet = dealer.phone ? ` ${dealer.phone}.` : "";
-  return {
-    title: `${dealer.name} - Buy Here Pay Here Dealer in ${dealer.city_name}, ${dealer.state_abbreviation} | BuyHerePayHere.io`,
+  return buildMetadata({
+    title: `${dealer.name} - BHPH in ${dealer.city_name}, ${dealer.state_abbreviation}`,
     description: `${dealer.name} is a buy here pay here dealership in ${dealer.city_name}, ${dealer.state_name}. Get in-house financing with bad credit.${phoneSnippet}`,
-  };
+    path: `/dealer/${dealerSlug}/${stateSlug}/${citySlug}/`,
+  });
 }
 
 export default async function DealerPage({ params }: DealerPageProps) {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buildMetadata } from "@/lib/seo";
 
 function LegalPage({
   title,
@@ -47,11 +48,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildMetadata({
   title: "Cookie Policy | BuyHerePayHere.io",
-  description:
-    "Read the Cookie Policy for BuyHerePayHere.io, including how cookies and similar technologies are used on the website.",
-};
+  description: "Read the Cookie Policy for BuyHerePayHere.io, including how cookies and similar technologies are used on the website.",
+  path: "/cookie-policy/",
+});
 
 export default function CookiePolicyPage() {
   return (

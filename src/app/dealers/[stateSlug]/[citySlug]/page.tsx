@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Breadcrumb from "@/components/Breadcrumb";
 import { getCityBySlug, getDealersByCity, getNearbyCities } from "@/lib/db";
+import { buildMetadata } from "@/lib/seo";
 
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -21,10 +22,11 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
     ? `Find ${dealerCount} buy here pay here dealerships in ${city.city_name}, ${city.state_name}. Get in-house financing and drive away today regardless of your credit score.`
     : `Looking for buy here pay here dealers in ${city.city_name}, ${city.state_name}? Browse nearby BHPH dealerships offering in-house financing for all credit types.`;
 
-  return {
-    title: `Buy Here Pay Here Dealers in ${city.city_name}, ${city.state_abbreviation} | BuyHerePayHere.io`,
+  return buildMetadata({
+    title: `BHPH Dealers in ${city.city_name}, ${city.state_abbreviation} | BuyHerePayHere.io`,
     description,
-  };
+    path: `/dealers/${stateSlug}/${citySlug}/`,
+  });
 }
 
 export default async function CityPage({ params }: CityPageProps) {

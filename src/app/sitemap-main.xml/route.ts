@@ -3,7 +3,7 @@ import pool from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const BASE_URL = "https://buyherepayhere.io";
+const BASE_URL = "https://www.buyherepayhere.io";
 
 function urlEntry(loc: string, priority: string, changefreq: string, lastmod: string) {
   return `  <url>

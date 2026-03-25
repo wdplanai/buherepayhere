@@ -4,9 +4,13 @@ import type { Metadata } from "next";
 import Breadcrumb from "@/components/Breadcrumb";
 import SearchBar from "@/components/SearchBar";
 import { getStateBySlug, getCitiesByState, getAllStates } from "@/lib/db";
+import { buildMetadata } from "@/lib/seo";
 
 export const revalidate = 3600;
 export const dynamicParams = true;
+
+/** Maximum cities to render in the initial server HTML to keep page size under 2 MB. */
+const MAX_CITIES_RENDERED = 300;
 
 interface StatePageProps {
   params: Promise<{ stateSlug: string }>;
@@ -16,10 +20,11 @@ export async function generateMetadata({ params }: StatePageProps): Promise<Meta
   const { stateSlug } = await params;
   const state = await getStateBySlug(stateSlug);
   if (!state) return {};
-  return {
-    title: `Buy Here Pay Here Dealers in ${state.state_name} | BuyHerePayHere.io`,
+  return buildMetadata({
+    title: `BHPH Dealers in ${state.state_name} | BuyHerePayHere.io`,
     description: `Find ${state.dealer_count} buy here pay here car dealers in ${state.state_name}. Browse cities and get approved for in-house financing with bad credit or no credit.`,
-  };
+    path: `/dealers/${stateSlug}/`,
+  });
 }
 
 export default async function StatePage({ params }: StatePageProps) {
@@ -35,6 +40,20 @@ export default async function StatePage({ params }: StatePageProps) {
   const otherStates = allStates.filter((s) => s.state_slug !== stateSlug).slice(0, 12);
 
   const topCityNames = cities.slice(0, 5).map((c) => c.city_name).join(", ");
+
+  /* Split cities: render the first batch in HTML, show the rest behind a
+     lightweight alphabetical index so crawlers still see every link but the
+     initial HTML stays well under 2 MB. */
+  const visibleCities = cities.slice(0, MAX_CITIES_RENDERED);
+  const remainingCities = cities.slice(MAX_CITIES_RENDERED);
+  const hasMore = remainingCities.length > 0;
+
+  /* Group remaining cities by first letter for a compact alphabetical list */
+  const remainingByLetter: Record<string, typeof remainingCities> = {};
+  for (const c of remainingCities) {
+    const letter = c.city_name.charAt(0).toUpperCase();
+    (remainingByLetter[letter] ??= []).push(c);
+  }
 
   const seoContent = [
     `${state.state_name} has a robust network of Buy Here Pay Here dealerships serving drivers across the state who may be facing credit challenges. With ${state.dealer_count} BHPH dealers spread across ${state.city_count} cities including ${topCityNames}, residents throughout ${state.state_name} have access to in-house financing options that make vehicle ownership possible regardless of credit history. These dealerships understand that a low credit score does not define your ability to make regular payments, and they work with you to find a vehicle and payment plan that fits your budget.`,
@@ -74,39 +93,68 @@ export default async function StatePage({ params }: StatePageProps) {
             Browse BHPH Dealers by City in {state.state_name}
           </h2>
           {cities.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {cities.map((city) => (
-                <Link
-                  key={city.city_slug}
-                  href={`/dealers/${state.state_slug}/${city.city_slug}/`}
-                  className="group flex items-center justify-between bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 hover:shadow-md transition-all duration-200"
-                >
-                  <div>
-                    <div className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {city.city_name}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-0.5">
-                      {city.dealer_count > 0
-                        ? `${city.dealer_count} ${city.dealer_count === 1 ? "dealer" : "dealers"} available`
-                        : "No dealers yet"}
-                    </div>
-                  </div>
-                  <svg
-                    className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {visibleCities.map((city) => (
+                  <Link
+                    key={city.city_slug}
+                    href={`/dealers/${state.state_slug}/${city.city_slug}/`}
+                    className="group flex items-center justify-between bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 hover:shadow-md transition-all duration-200"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </Link>
-              ))}
-            </div>
+                    <div>
+                      <div className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        {city.city_name}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-0.5">
+                        {city.dealer_count > 0
+                          ? `${city.dealer_count} ${city.dealer_count === 1 ? "dealer" : "dealers"} available`
+                          : "No dealers yet"}
+                      </div>
+                    </div>
+                    <svg
+                      className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </Link>
+                ))}
+              </div>
+
+              {/* Compact alphabetical index for remaining cities */}
+              {hasMore && (
+                <div className="mt-10">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">
+                    More Cities in {state.state_name} ({remainingCities.length})
+                  </h3>
+                  <div className="space-y-4">
+                    {Object.keys(remainingByLetter).sort().map((letter) => (
+                      <div key={letter}>
+                        <h4 className="text-sm font-bold text-blue-600 mb-1">{letter}</h4>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                          {remainingByLetter[letter].map((city) => (
+                            <Link
+                              key={city.city_slug}
+                              href={`/dealers/${state.state_slug}/${city.city_slug}/`}
+                              className="text-sm text-gray-600 hover:text-blue-600 hover:underline"
+                            >
+                              {city.city_name}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center">
               <p className="text-gray-600 font-medium mb-1">

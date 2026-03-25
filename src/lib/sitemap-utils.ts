@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import pool from "@/lib/db";
 
-const BASE_URL = "https://buyherepayhere.io";
+const BASE_URL = "https://www.buyherepayhere.io";
 const CITIES_PER_SITEMAP = 5000;
 
 export async function generateCitySitemap(pageNum: number) {

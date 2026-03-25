@@ -2,14 +2,16 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import SearchBar from "@/components/SearchBar";
 import { getAllStates } from "@/lib/db";
+import { buildMetadata } from "@/lib/seo";
 
 export const revalidate = 3600; // ISR: revalidate every hour
 
-export const metadata: Metadata = {
-  title: "Find Buy Here Pay Here Dealers Near You | BuyHerePayHere.io",
+export const metadata: Metadata = buildMetadata({
+  title: "Find BHPH Dealers Near You | BuyHerePayHere.io",
   description:
     "Browse 2,699 trusted buy here pay here dealerships across all 50 states. Get approved for in-house financing regardless of your credit history.",
-};
+  path: "/",
+});
 
 export default async function HomePage() {
   const states = await getAllStates();
@@ -253,21 +255,16 @@ export default async function HomePage() {
                 {
                   question: "Will my payments help rebuild my credit?",
                   answer:
-                    "Many BHPH dealers report your payment history to one or more credit bureaus. Making consistent, on-time payments can help improve your credit score over time. Ask your dealer if they report to credit bureaus before purchasing.",
-                },
-                {
-                  question: "What should I look for in a BHPH dealer?",
-                  answer:
-                    "Look for dealers with positive customer reviews, transparent pricing (no hidden fees), a solid selection of inspected vehicles, and clear payment terms. A good BHPH dealer will be upfront about everything and won't pressure you into a purchase.",
+                    "Many BHPH dealers report your payment history to one or more credit bureaus. This means that making consistent, on-time payments can help improve your credit score over time. Always ask the dealer if they report to credit bureaus before signing.",
                 },
                 {
                   question: "Can I trade in my current vehicle?",
                   answer:
-                    "Many BHPH dealers accept trade-ins, which can reduce your down payment or the overall cost of your new vehicle. Even if your current car isn't running, some dealers may still offer trade-in value.",
+                    "Yes, most Buy Here Pay Here dealers accept trade-ins. The value of your trade-in can be applied toward your down payment, reducing the amount you need to pay upfront.",
                 },
-              ].map((faq, index) => (
+              ].map((faq) => (
                 <div
-                  key={index}
+                  key={faq.question}
                   className="bg-white rounded-lg border border-gray-200 p-6"
                 >
                   <h3 className="font-semibold text-gray-900 mb-2">
@@ -283,75 +280,71 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Bottom SEO Section */}
+      {/* SEO Content Section */}
       <section className="bg-white">
         <div className="container-custom py-16">
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 text-center">
               Your Guide to Buy Here Pay Here Dealerships
             </h2>
             <div className="space-y-4 text-gray-600 leading-relaxed">
               <p>
-                BuyHerePayHere.io is the most comprehensive online directory of
-                Buy Here Pay Here dealerships in the United States. We help
-                consumers find trusted BHPH dealers in their area by providing
-                detailed listings organized by state and city. Our directory
-                includes dealership information such as location, contact details,
-                hours of operation, and the types of financing available.
+                Finding the right Buy Here Pay Here dealership can make all the
+                difference when you need a vehicle but have limited financing
+                options. Our comprehensive directory lists over{" "}
+                {totalDealers.toLocaleString()} BHPH dealerships across all 50
+                states, making it easy to find a dealer near you that offers
+                in-house financing for all credit situations.
               </p>
               <p>
-                We understand that searching for a car when you have credit
-                challenges can feel overwhelming. That&apos;s why we&apos;ve created a
-                simple, easy-to-use resource that connects you with dealerships
-                that specialize in helping people in exactly your situation. Buy
-                Here Pay Here dealers exist specifically to serve customers who may
-                not qualify for traditional financing, and they have years of
-                experience helping people just like you get into reliable vehicles.
+                Whether you are in a major city like Houston, Atlanta, or
+                Chicago, or in a smaller town, our directory helps you locate
+                Buy Here Pay Here dealers that can work with your unique
+                financial situation. Each listing includes the dealer&apos;s
+                address, phone number, and details about their services, so you
+                can compare your options before visiting.
               </p>
               <p>
-                Whether you&apos;re dealing with bad credit, no credit, a recent
-                bankruptcy, or a previous repossession, the BHPH dealers in our
-                directory can help. Many offer same-day approval, flexible payment
-                schedules, and the opportunity to rebuild your credit through
-                on-time payments. Use our search tool or browse by state to find a
-                Buy Here Pay Here dealer near you today.
+                We believe everyone deserves access to reliable transportation.
+                That is why BuyHerePayHere.io is completely free to use for car
+                buyers. Simply browse by state, find your city, and connect
+                with a local BHPH dealer who can help you get behind the wheel
+                today.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="bg-blue-600">
-        <div className="container-custom py-12">
-          <div className="text-center">
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-              Ready to Find a Dealer?
-            </h2>
-            <p className="text-blue-100 mb-6 max-w-xl mx-auto">
-              Browse our directory of trusted Buy Here Pay Here dealerships and
-              take the first step toward reliable transportation.
-            </p>
-            <Link
-              href="#browse-states"
-              className="inline-flex items-center gap-2 bg-white text-blue-600 font-semibold px-8 py-3 rounded-lg hover:bg-blue-50 transition-colors"
+      {/* Bottom CTA */}
+      <section className="bg-gradient-to-r from-blue-700 to-blue-800 text-white">
+        <div className="container-custom py-16 text-center">
+          <h2 className="text-2xl md:text-3xl font-bold mb-4">
+            Ready to Find a Dealer?
+          </h2>
+          <p className="text-blue-100 mb-8 max-w-xl mx-auto">
+            Browse our directory of {totalDealers.toLocaleString()}+ Buy Here
+            Pay Here dealerships and find one near you today.
+          </p>
+          <a
+            href="#browse-states"
+            className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold px-8 py-3 rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            Browse by State
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              Browse by State
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </Link>
-          </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </a>
         </div>
       </section>
     </>

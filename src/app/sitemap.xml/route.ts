@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const BASE_URL = "https://buyherepayhere.io";
+const BASE_URL = "https://www.buyherepayhere.io";
 
 export async function GET() {
   const sitemaps = [

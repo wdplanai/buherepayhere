@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buildMetadata } from "@/lib/seo";
 
 function LegalPage({
   title,
@@ -47,11 +48,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildMetadata({
   title: "Privacy Policy | BuyHerePayHere.io",
-  description:
-    "Read the Privacy Policy for BuyHerePayHere.io, including how information is collected, used, stored, and shared.",
-};
+  description: "Read the Privacy Policy for BuyHerePayHere.io, including how information is collected, used, stored, and shared.",
+  path: "/privacy-policy/",
+});
 
 export default function PrivacyPolicyPage() {
   return (

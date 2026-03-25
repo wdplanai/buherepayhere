@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buildMetadata } from "@/lib/seo";
 
 function LegalPage({
   title,
@@ -47,11 +48,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildMetadata({
   title: "Terms of Service | BuyHerePayHere.io",
-  description:
-    "Read the Terms of Service for BuyHerePayHere.io, a directory of Buy Here Pay Here car dealers across the United States.",
-};
+  description: "Read the Terms of Service for BuyHerePayHere.io, a directory of Buy Here Pay Here car dealers across the United States.",
+  path: "/terms-of-service/",
+});
 
 export default function TermsOfServicePage() {
   return (
